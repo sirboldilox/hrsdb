@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+"""
+Initialise the database
+"""
+from hrsdb.db.models import create_all
+
+print("Initialising database")
+create_all()
+print("Done")
+
