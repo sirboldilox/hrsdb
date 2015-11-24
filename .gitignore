@@ -2,3 +2,6 @@
 __pychache__
 *.py[cod]
 *$py.class
+
+# Pycharm settings
+.idea
