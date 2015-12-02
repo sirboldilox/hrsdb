@@ -5,3 +5,6 @@ __pychache__
 
 # Pycharm settings
 .idea
+
+# Sqlite databases
+*.db
