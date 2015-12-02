@@ -8,6 +8,11 @@ setup(
     description='Health Record System Database',
     author='Matt Parker',
     author_email='m.parker-12@student.lboro.ac.uk',
+
     packages=['sqlalchemy', 'flask'],
-    scripts=['scripts/hrsdb']
+    scripts=[
+        'scripts/hrsdb_init',
+        'scripts/hrsdb_add_patient',
+        'scripts/hrsdb_http'
+    ]
 )
