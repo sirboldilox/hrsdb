@@ -18,11 +18,16 @@ class DBHandler(object):
     Handles connections to the database
     """
 
-    def __init__(self):
-        self.session = Session()
+    def __init__(self, session_class=Session):
+        """Initialise a datbase connection handler
+
+        :param session_class: Session object created from calling "sessionmaker"
+                                This can be overridden for custom unit tests.
+        """
+        self.session = session_class()
 
     def __enter__(self):
-        return self
+        return self.session
 
     def __exit__(self, type, value, traceback):
         if type is None:
@@ -40,7 +45,7 @@ def to_dict(record):
     """
     rdict = {}
     for column in record.__table__.columns:
-      rdict[column.name] = str(getattr(record, column.name))
+        rdict[column.name] = str(getattr(record, column.name))
 
     return rdict
 
