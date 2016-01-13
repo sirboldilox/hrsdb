@@ -39,7 +39,8 @@ class Patient(Base):
             str(self.date_of_birth)
         )
 
-def create_all():
+def create_all(engine=None):
     """Create all database tables"""
-    from hrsdb.db import engine
+    if engine is None:
+        from hrsdb.db import engine
     Base.metadata.create_all(engine)

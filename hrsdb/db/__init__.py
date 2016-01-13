@@ -1,16 +1,31 @@
 """
 General database settings
 """
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, DateTime
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
+
+from hrsdb import utils
 
 # Defines
 DB_URL = 'sqlite:///hrs_test.db'
 
 # Global database objects
-engine = create_engine(DB_URL, echo=True)
-Session = sessionmaker(bind=engine)
+engine = None
+Session = None
+
+def init_db(db_url=DB_URL):
+    """Initialse the database"""
+    global engine, Session
+
+    # Cleanup if called multiple times
+    if Session is not None:
+        Session.close_all()
+    if engine is not None:
+        engine.dispose()
+
+    engine = create_engine(db_url)
+    Session = sessionmaker(bind=engine)
 
 
 class DBHandler(object):
@@ -18,13 +33,10 @@ class DBHandler(object):
     Handles connections to the database
     """
 
-    def __init__(self, session_class=Session):
+    def __init__(self):
         """Initialise a datbase connection handler
-
-        :param session_class: Session object created from calling "sessionmaker"
-                                This can be overridden for custom unit tests.
         """
-        self.session = session_class()
+        self.session = Session()
 
     def __enter__(self):
         return self.session
@@ -34,6 +46,7 @@ class DBHandler(object):
             print("Closing session")
         else:
             print("Exeption: %s %s %s" % (str(type), str(value), str(traceback)))
+
         self.session.close()
 
 
@@ -45,7 +58,16 @@ def to_dict(record):
     """
     rdict = {}
     for column in record.__table__.columns:
-        rdict[column.name] = str(getattr(record, column.name))
+        value = getattr(record, column.name)
 
+        # Convert datetime string
+        if type(column.type) is DateTime:
+            value = utils.date2str(value)
+
+        rdict[column.name] = value
+            
     return rdict
 
+
+# Initialise database when loaded
+init_db()

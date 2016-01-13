@@ -24,5 +24,6 @@ def date2str(date):
     """
     try:
         return date.strftime(DATETIME_FORMAT)
-    except:
+    except Exception as error:
+        print(error)
         return None
