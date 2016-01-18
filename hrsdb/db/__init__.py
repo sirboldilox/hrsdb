@@ -1,6 +1,7 @@
 """
 General database settings
 """
+import contextlib
 from sqlalchemy import create_engine, event, DateTime
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
@@ -27,27 +28,23 @@ def init_db(db_url=DB_URL):
     engine = create_engine(db_url)
     Session = sessionmaker(bind=engine)
 
-
-class DBHandler(object):
+@contextlib.contextmanager
+def DBHandler():
     """
     Handles connections to the database
     """
+    global engine, Session
 
-    def __init__(self):
-        """Initialise a datbase connection handler
-        """
-        self.session = Session()
-
-    def __enter__(self):
-        return self.session
-
-    def __exit__(self, type, value, traceback):
-        if type is None:
-            print("Closing session")
-        else:
-            print("Exeption: %s %s %s" % (str(type), str(value), str(traceback)))
-
-        self.session.close()
+    session = Session()
+    try:
+        yield session
+        session.commit()
+    except Exception as error:
+        session.rollback()
+        print("Exeption: %s" % str(error))
+        raise
+    finally:
+        session.close()
 
 
 def to_dict(record):

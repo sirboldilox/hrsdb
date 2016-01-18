@@ -36,8 +36,6 @@ class PatientAPI(Resource):
             print("No patient ID")
             return
 
-
-        record = None
         with DBHandler() as db_han:
             try:
                 record = db_han.query(Patient) \
@@ -49,11 +47,11 @@ class PatientAPI(Resource):
                 print("Exeption: %s" % (str(error)))
                 return jsonify({})
 
-        print(record)
-        response = {
-            "response": to_dict(record)
-        }
-        return jsonify(response)
+            response = {
+                "response": to_dict(record)
+            }
+
+            return jsonify(response)
 
     def put(self, patient_id):
         """PUT a new record into the database and return the generated ID"""
@@ -99,7 +97,6 @@ class PatientListAPI(Resource):
         Fetchs the list of patient records from the database
         :return: JSON encoded list of patient records
         """
-        records = None
         with DBHandler() as db_han:
             try:
                 records = db_han.query(Patient).all()
@@ -109,12 +106,12 @@ class PatientListAPI(Resource):
                 print("Exeption: %s" % (str(error)))
                 return jsonify({})
 
-        # Build the response list
-        rlist = [to_dict(record) for record in records]
-        response = {
-            "response": rlist
-        }
-        return jsonify(response)
+            # Build the response list
+            rlist = [to_dict(record) for record in records]
+            response = {
+                "response": rlist
+            }
+            return jsonify(response)
 
     @staticmethod
     def add(api):
