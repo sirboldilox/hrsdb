@@ -1,20 +1,16 @@
 """
-Http server definition
+hrsdb entry point for console script
+
+Options:
+    -H/--host   Address to bind the server to (127.0.0.1)
+    -p/--port   The port to list on.
+    -d/--debug  If set the server will be ran in debug mode with full logging
 """
 import argparse
-from flask import Flask
 
-# Local imports
 from hrsdb.config import CONFIG as config
-from hrsdb.http.models import load_api
+from hrsdb.http import create_server
 
-
-def create_server():
-    """Creates the flask application for running the HTTP database access."""
-
-    app = Flask(__name__)
-    load_api(app)
-    return app
 
 def main():
     parser = argparse.ArgumentParser()

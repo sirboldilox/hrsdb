@@ -9,10 +9,14 @@ setup(
     author='Matt Parker',
     author_email='m.parker-12@student.lboro.ac.uk',
 
-    packages=['sqlalchemy', 'flask'],
+    packages=['hrsdb'],
     scripts=[
         'scripts/hrsdb_init',
         'scripts/hrsdb_add_patient',
-        'scripts/hrsdb_http'
-    ]
+    ],
+    entry_points={
+        'console_scripts': [
+            'hrsdb_http = hrsdb.__main__:main'
+        ]
+    }
 )
