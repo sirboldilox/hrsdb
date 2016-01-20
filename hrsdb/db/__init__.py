@@ -7,17 +7,18 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from hrsdb import utils
-
-# Defines
-DB_URL = 'sqlite:///hrs_test.db'
+from hrsdb.config import CONFIG as config
 
 # Global database objects
 engine = None
 Session = None
 
-def init_db(db_url=DB_URL):
+
+def init_db():
     """Initialse the database"""
     global engine, Session
+
+    db_url = config.get('database', 'url')
 
     # Cleanup if called multiple times
     if Session is not None:
