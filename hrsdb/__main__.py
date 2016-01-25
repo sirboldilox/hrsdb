@@ -11,25 +11,30 @@ import argparse
 from hrsdb.config import CONFIG as config
 from hrsdb.http import create_server
 
+# Defaults
+DEFAULT_HTTP_HOST = '127.0.0.1'
+DEFAULT_HTTP_PORT = '8080'
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-H', '--host', help='Address to bind to')
-    parser.add_argument('-p', '--port', type=int, default=8080, help='HTTP server port')
+    parser.add_argument('-p', '--port', type=int, help='HTTP server port')
     parser.add_argument('-d', '--debug', action='store_true', help='Run the server in debug mode')
     args = parser.parse_args()
 
     app = create_server()
 
+    # Check config order (cli > config > defaults)
     if args.host:
         host = args.host
     else:
-        host = config.get('http', 'host')
+        host = config.get('http', 'host', fallback=DEFAULT_HTTP_HOST)
 
     if args.port:
         port = args.port
     else:
-        port = config.getInt('http', 'port')
+        port = int(config.get('http', 'port', fallback=DEFAULT_HTTP_PORT))
 
     app.debug = args.debug
     app.run(host=host, port=port)

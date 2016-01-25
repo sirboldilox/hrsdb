@@ -9,6 +9,9 @@ from sqlalchemy.orm import sessionmaker
 from hrsdb import utils
 from hrsdb.config import CONFIG as config
 
+# Defaults
+DEFAULT_URL = 'sqlite:///hrsdb.db'
+
 # Global database objects
 engine = None
 Session = None
@@ -18,7 +21,7 @@ def init_db():
     """Initialse the database"""
     global engine, Session
 
-    db_url = config.get('database', 'url')
+    db_url = config.get('database', 'url', fallback=DEFAULT_URL)
 
     # Cleanup if called multiple times
     if Session is not None:
