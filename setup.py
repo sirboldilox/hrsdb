@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(
     name='HRSDB',
@@ -9,7 +9,7 @@ setup(
     author='Matt Parker',
     author_email='m.parker-12@student.lboro.ac.uk',
 
-    packages=['hrsdb'],
+    packages=find_packages(),
     scripts=[
         'scripts/hrsdb_init',
         'scripts/hrsdb_add_patient',
