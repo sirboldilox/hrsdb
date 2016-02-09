@@ -7,9 +7,14 @@ Options:
     -d/--debug  If set the server will be ran in debug mode with full logging
 """
 import argparse
+import logging
 
 from hrsdb.config import CONFIG as config
+from hrsdb.log import init_log
 from hrsdb.http import create_server
+
+# Log handler
+logs = logging.getLogger(__name__)
 
 # Defaults
 DEFAULT_HTTP_HOST = '127.0.0.1'
@@ -22,6 +27,9 @@ def main():
     parser.add_argument('-p', '--port', type=int, help='HTTP server port')
     parser.add_argument('-d', '--debug', action='store_true', help='Run the server in debug mode')
     args = parser.parse_args()
+
+    # Setup logging
+    init_log()
 
     app = create_server()
 

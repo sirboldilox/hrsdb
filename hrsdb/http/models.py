@@ -1,6 +1,17 @@
 """
 Record type definitions for the HTTP API
+
+Returns:
+    All data returned by the REST service is encoded into a JSON response object formatted as follows:
+        response = {
+            "response" : data
+        }
+
+    Encapsulating the response inside a Json object ensures that the top level object cannot be a list.
+
 """
+import logging
+
 from flask import jsonify, abort
 from flask_restful import Api, Resource, reqparse
 from sqlalchemy.orm.exc import NoResultFound
@@ -9,6 +20,16 @@ from sqlalchemy.orm.exc import NoResultFound
 from hrsdb import utils
 from hrsdb.db import DBHandler, to_dict
 from hrsdb.db.models import Patient
+
+# Logging
+logger = logging.getLogger(__name__)
+
+
+def gen_response(data):
+    """Return a JSON encoded response object for flask"""
+    return jsonify({
+                "response": data
+            })
 
 
 class PatientAPI(Resource):
@@ -29,29 +50,23 @@ class PatientAPI(Resource):
     parser.add_argument('date_of_birth', required=True)
 
     def get(self, patient_id):
-        """GET a patient record by ID from the database"""
-        if patient_id is not None:
-            print(patient_id)
-        else:
-            print("No patient ID")
-            return
+        """GET a patient record by ID from the database
+
+        :returns: JSON response object
+        """
 
         with DBHandler() as db_han:
             try:
                 record = db_han.query(Patient) \
                     .filter(Patient.id == patient_id).one()
             except NoResultFound:
-                print("No record found")    # TODO: remove debugging
-                return jsonify({})
+                logger.info("No record found")    # TODO: remove debugging
+                return gen_response("No record found")
             except Exception as error:
                 print("Exeption: %s" % (str(error)))
-                return jsonify({})
+                return gen_response("Internal server error")
 
-            response = {
-                "response": to_dict(record)
-            }
-
-            return jsonify(response)
+            return gen_response(to_dict(record))
 
     def put(self, patient_id):
         """PUT a new record into the database and return the generated ID"""
@@ -78,13 +93,14 @@ class PatientAPI(Resource):
 
         # Check for error handling
         if return_id is None:
-            return jsonify({"response": "error"})
+            return gen_response("internal server error")
         else:
-            return jsonify({"response": {"id": return_id}})
+            return gen_response({"id": return_id})
 
     @staticmethod
     def add(api):
         api.add_resource(PatientAPI, '/patient/<int:patient_id>')
+
 
 class PatientListAPI(Resource):
     """
@@ -101,17 +117,15 @@ class PatientListAPI(Resource):
             try:
                 records = db_han.query(Patient).all()
             except NoResultFound:
-                return jsonify({})
+                logger.info("No record found")    # TODO: remove debugging
+                return gen_response("No result found")
             except Exception as error:
-                print("Exeption: %s" % (str(error)))
-                return jsonify({})
+                logger.exception("Exeption: %s" % (str(error)))
+                return gen_response("Internal server error")
 
             # Build the response list
             rlist = [to_dict(record) for record in records]
-            response = {
-                "response": rlist
-            }
-            return jsonify(response)
+            return gen_response(rlist)
 
     @staticmethod
     def add(api):
@@ -121,7 +135,7 @@ class PatientListAPI(Resource):
 # Load the api
 def load_api(app):
     api = Api(app)
-    print("* Loading API:")
+    app.logger.debug("* Loading API:")
     for resource in Resource.__subclasses__():
-        print("  -> %s" % (resource.__name__))
+        app.logger.debug("  -> %s" % resource.__name__)
         resource.add(api)

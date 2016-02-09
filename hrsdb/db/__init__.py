@@ -2,12 +2,16 @@
 General database settings
 """
 import contextlib
+import logging
+
 from sqlalchemy import create_engine, event, DateTime
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from hrsdb import utils
 from hrsdb.config import CONFIG as config
+
+# Logging
+logger = logging.getLogger(__name__)
 
 # Defaults
 DEFAULT_URL = 'sqlite:///hrsdb.db'
@@ -22,6 +26,7 @@ def init_db():
     global engine, Session
 
     db_url = config.get('database', 'url', fallback=DEFAULT_URL)
+    logger.info("Database URL: %s" % db_url)
 
     # Cleanup if called multiple times
     if Session is not None:
@@ -29,8 +34,9 @@ def init_db():
     if engine is not None:
         engine.dispose()
 
-    engine = create_engine(db_url)
+    engine = create_engine(db_url, echo=False)
     Session = sessionmaker(bind=engine)
+
 
 @contextlib.contextmanager
 def DBHandler():
@@ -39,13 +45,14 @@ def DBHandler():
     """
     global engine, Session
 
+    logger.debug("DBHandler opened")
     session = Session()
     try:
         yield session
         session.commit()
     except Exception as error:
         session.rollback()
-        print("Exeption: %s" % str(error))
+        logger.exception("Exception: %s" % str(error))
         raise
     finally:
         session.close()
