@@ -2,21 +2,28 @@
 Config reader 
 """
 
-import configparser
+from configparser import ConfigParser, NoSectionError, ParsingError
 
 # Defaults
-DEFAULT_PATH = '/etc/hrsdb.conf'
-
-# Global config file
-CONFIG = None
 
 
-def load_config():
-    """Load the module config"""
-    config = configparser.ConfigParser()
-    config.read(DEFAULT_PATH)
-    return config
+class SiteConfig(ConfigParser):
+    """Configuration options for the site.
+    Raises exceptions if the required sections are missing
+    """
+    required_sections = ['flask', 'database']
 
-    
-# Global config file
-CONFIG = load_config()
+
+    @classmethod
+    def from_file(cls, filename):
+        conf = SiteConfig()
+        if not conf.read([filename]):
+            raise ParsingError("Failed to parse file: %s" % filename)
+
+        # Check sections
+        for section in cls.required_sections:
+            if not conf.has_section(section):
+                raise NoSectionError("Missing section: %s" % section) 
+
+        return conf
+

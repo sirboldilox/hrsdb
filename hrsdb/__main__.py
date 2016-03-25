@@ -8,44 +8,67 @@ Options:
 """
 import argparse
 import logging
+from configparser import Error as ConfigError
 
-from hrsdb.config import CONFIG as config
+from hrsdb.app import webapp
+from hrsdb.config import SiteConfig
+from hrsdb.db import init_db
 from hrsdb.log import init_log
-from hrsdb.http import create_server
 
 # Log handler
 logs = logging.getLogger(__name__)
 
 # Defaults
 DEFAULT_HTTP_HOST = '127.0.0.1'
-DEFAULT_HTTP_PORT = '8080'
+DEFAULT_HTTP_PORT = 8080
+
+DEFAULT_CONFIG_PATH = '/etc/hrsdb.conf'
 
 
 def main():
+    """Service entry point"""
     parser = argparse.ArgumentParser()
-    parser.add_argument('-H', '--host', help='Address to bind to')
+    parser.add_argument('-b', '--bind', help='Address to bind to')
     parser.add_argument('-p', '--port', type=int, help='HTTP server port')
+    parser.add_argument('-c', '--config', help='Config file to load')
     parser.add_argument('-d', '--debug', action='store_true', help='Run the server in debug mode')
     args = parser.parse_args()
 
     # Setup logging
     init_log()
 
-    app = create_server()
+    # Setup database handler
+    init_db()
+
+    # Setup config
+    if args.config:
+        config_file = args.config
+    else:
+        config_file = DEFAULT_CONFIG_PATH
+    
+    try:
+        config = SiteConfig.from_file(config_file)
+    except ConfigError as error:
+        logs.error("Exception when loading config file: %s", str(error))
+        return
 
     # Check config order (cli > config > defaults)
-    if args.host:
-        host = args.host
+    if args.bind:
+        host = args.bind
     else:
-        host = config.get('http', 'host', fallback=DEFAULT_HTTP_HOST)
+        host = config.get('flask', 'bind', fallback=DEFAULT_HTTP_HOST)
 
     if args.port:
         port = args.port
     else:
-        port = int(config.get('http', 'port', fallback=DEFAULT_HTTP_PORT))
+        port = config.getint('flask', 'port', fallback=DEFAULT_HTTP_PORT)
 
-    app.debug = args.debug
-    app.run(host=host, port=port)
+    if args.debug:
+        debug = True
+    else:
+        debug = config.getboolean('flask', 'debug', fallback=False)
+
+    webapp.run(host=host, port=port, debug=args.debug)
 
 
 # Start main

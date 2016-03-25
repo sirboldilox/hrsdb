@@ -8,7 +8,6 @@ from sqlalchemy import create_engine, event, DateTime
 from sqlalchemy.orm import sessionmaker
 
 from hrsdb import utils
-from hrsdb.config import CONFIG as config
 
 # Logging
 logger = logging.getLogger(__name__)
@@ -21,11 +20,19 @@ engine = None
 Session = None
 
 
-def init_db():
-    """Initialse the database"""
+def init_db(config=None):
+    """Initialse the database
+
+    :param db_url: Database URL to use. If None the config is loaded
+    """
+
     global engine, Session
 
-    db_url = config.get('database', 'url', fallback=DEFAULT_URL)
+    if config is None:
+        db_url = DEFAULT_URL
+    else:
+        db_url = config.get('database', 'url', fallback=DEFAULT_URL)
+
     logger.info("Database URL: %s" % db_url)
 
     # Cleanup if called multiple times
@@ -34,12 +41,16 @@ def init_db():
     if engine is not None:
         engine.dispose()
 
-    engine = create_engine(db_url, echo=False)
+    engine = create_engine(db_url)
     Session = sessionmaker(bind=engine)
+
+    # Create all database tables
+    from hrsdb.db.models import Base
+    Base.metadata.create_all(engine)
 
 
 @contextlib.contextmanager
-def DBHandler():
+def open_session():
     """
     Handles connections to the database
     """
@@ -76,6 +87,3 @@ def to_dict(record):
             
     return rdict
 
-
-# Initialise database when loaded
-init_db()
