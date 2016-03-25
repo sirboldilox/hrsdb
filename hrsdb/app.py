@@ -260,9 +260,7 @@ class BiometricListAPI(Resource):
 # Load the api
 def load_api(app):
     api = Api(app)
-    print("* Loading API:")
     for resource in Resource.__subclasses__():
-        print("  -> %s" % resource.__name__)
         resource.add(api)
 
 
