@@ -76,38 +76,41 @@ class BiometricType(Base):
     :param str name: Type name
     """
     static_data = [
-        "height",
-        "weight",
-        "blood pressure",
-        "ecg"
+        (1, "height", "cm"),
+        (2, "weight", "kg"),
+        (3, "blood pressure", "mm Hg"),
+        (10, "ecg", "mV")
     ]
 
     __tablename__ = "biometric_types"
 
-    id = Column(Integer, primary_key=True)
-    type = Column(String)
+    id   = Column(Integer, primary_key=True)
+    name = Column(String)
+    units = Column(String)
 
-    def __init__(self, type):
-        self.type = type
+    def __init__(self, id, name, units):
+        self.id = id
+        self.name = name
+        self.units = units
 
     def __repr__(self):
-        return "<BiometricType: %s>" % self.type
+        return "<BiometricType: %s %s>" % (self.name, self.units)
 
     @staticmethod
     def create_static(session):
         """Populate this table with static data"""
 
         local_data = session.query(BiometricType).all()
-        for static_entry in BiometricType.static_data:
+        for id, name, units in BiometricType.static_data:
             present = False
             for entry in local_data:
-                if entry.type == static_entry:
+                if entry.name == name:
                     present = True
                     break
 
             # Add missing entries
             if not present:
-                session.add(BiometricType(static_entry))
+                session.add(BiometricType(id, name, units))
 
 
 class Biometric(Base):

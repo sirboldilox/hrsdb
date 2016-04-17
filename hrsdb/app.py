@@ -73,7 +73,6 @@ class PatientAPI(Resource):
         :param int patient_id:   Ignored, used for GET requests
         :returns:                Database ID for the patient in a response object
         """
-        print("HTTP-API PATIENT PUT:")
         args = self.parser.parse_args()
 
         # Convert data_time and validate
