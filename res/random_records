@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+# Generates random patients with biometric and ECG readings into the database
+# This script assumes the database is already running
+#
+# usage: random_records <database url>
+import argparse
+import json
+import requests
+from random import randrange
+from datetime import datetime, timedelta 
+
+# CONSTANTS
+
+# Name data
+MALE_NAMES   = 'male_names.txt'
+FEMALE_NAMES = 'female_names.txt'
+
+# Date format
+DATE_START = datetime.strptime('1/1/1940', '%d/%m/%Y')
+DATE_END = datetime.strptime('1/1/2012', '%d/%m/%Y')
+
+# Gender constants
+GENDER_MALE   = 0
+GENDER_FEMALE = 1
+
+# Random ranges
+HEIGHT_MIN = 155
+HEIGHT_MAX = 185
+
+WEIGHT_MIN = 50
+WEIGHT_MAX = 250
+
+BP_DIASTOLIC_MIN = 40 
+BP_DIASTOLIC_MAX = 100
+
+BP_SYSTOLIC_MIN = 70
+BP_SYSTOLIC_MAX = 190
+
+# Biotypes
+TYPE_HEIGHT = 1
+TYPE_WEIGHT = 2
+TYPE_BP = 3
+
+
+def random_date(start=DATE_START, end=DATE_END):
+    """
+    This function will return a random datetime between two datetime 
+    objects.
+    """
+    delta = end - start
+    int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
+    random_second = randrange(int_delta)
+    return start + timedelta(seconds=random_second)
+
+def random_height():
+    """Generate a random height"""
+    return randrange(HEIGHT_MIN, HEIGHT_MAX)
+
+def random_weight():
+    """Generate a random weight"""
+    return randrange(WEIGHT_MIN, WEIGHT_MAX)
+
+def random_bp():
+    return "%d/%d" % (
+        randrange(BP_SYSTOLIC_MIN, BP_SYSTOLIC_MAX),
+        randrange(BP_DIASTOLIC_MIN, BP_DIASTOLIC_MAX)
+    )
+
+# Entry
+def main():
+    """ Generate the file"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('db_url', help="Base URL of the database: e.g: http://hrsdb:8080")
+    args = parser.parse_args()
+
+    plist = []
+    
+    print("Generating patient records")
+    # Build male entries
+    with open(MALE_NAMES) as names_file:
+        for line in names_file:
+            first_name, last_name = line.strip().split(' ', 1)
+            dob = random_date().strftime('%d/%m/%Y')
+            plist.append({
+                'first_name'    : first_name,
+                'last_name'     : last_name,
+                'gender'        : GENDER_MALE,
+                'date_of_birth' : dob            })
+
+    # Build female entries
+    with open(FEMALE_NAMES) as names_file:
+        for line in names_file:
+            first_name, last_name = line.strip().split(' ', 1)
+            dob = random_date().strftime('%d/%m/%Y')
+            plist.append({
+                'first_name'    : first_name,
+                'last_name'     : last_name,
+                'gender'        : GENDER_FEMALE,
+                'date_of_birth' : dob            })
+
+    # Send data to database
+    print("Generating biometric data")
+    for patient in plist:
+        requests.put(args.db_url + '/patient/0', data=patient)
+        print("-> %04d %s %s" % (patient['id'], patient['first_name'], patient['last_name']))
+        
+        height = random_height()
+        weight = random_weight()
+
+        # Generate 10 height and weight records for each patient
+        for j in range(0, 10):
+            
+            iheight = height + randrange(-2,2)
+            iweight = weight + randrange(-5,5)
+            ibp = random_bp()
+
+            # Generate heights entries
+            height_json = {
+               'patient_id': patient['id'], 
+               'biometric_type_id': TYPE_HEIGHT,
+               'value': str(iheight),
+               'timestamp': datetime.datetime.now().strftime('%d/%m/%Y')
+            }
+
+            # Generate weight entries
+            weight_json = {
+               'patient_id': patient['id'], 
+               'biometric_type_id': TYPE_WEIGHT,
+               'value': str(iweight),
+               'timestamp': datetime.datetime.now().strftime('%d/%m/%Y')
+            }
+
+            # Generate blood pressure entries
+            bp_json = {
+               'patient_id': patient['id'], 
+               'biometric_type_id': TYPE_BP,
+               'value': str(ibp),
+               'timestamp': datetime.datetime.now().strftime('%d/%m/%Y')
+            }
+
+            # Publish to database
+            requests.put(args.db_url + '/biometric/0', data=height_json)
+            requests.put(args.db_url + '/biometric/0', data=weight_json)
+            requests.put(args.db_url + '/biometric/0', data=bp_json)
+
+    print("Complete")
+
+if __name__ == '__main__':
+    main()
