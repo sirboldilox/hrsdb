@@ -45,8 +45,12 @@ def init_db(config=None):
     Session = sessionmaker(bind=engine)
 
     # Create all database tables
-    from hrsdb.db.models import Base
+    from hrsdb.db.models import Base, BiometricType
     Base.metadata.create_all(engine)
+
+    # Build static entries
+    with open_session() as session:
+        BiometricType.create_static(session)
 
 
 @contextlib.contextmanager
