@@ -100,8 +100,12 @@ def main():
 
     # Send data to database
     print("Generating biometric data")
+    base_date = datetime.now() - timedelta(days=365)
     for patient in plist:
-        requests.put(args.db_url + '/patient/0', data=patient)
+        rev = requests.put(args.db_url + '/patient/0', data=patient)
+        patient['id'] = rev.json()['response']['id']
+        #    patient['id'] = 0
+
         print("-> %04d %s %s" % (patient['id'], patient['first_name'], patient['last_name']))
         
         height = random_height()
@@ -110,6 +114,8 @@ def main():
         # Generate 10 height and weight records for each patient
         for j in range(0, 10):
             
+            # Generate a date +30days from base date 
+            date_str = (base_date + timedelta(days=30*(j+1))).strftime('%d/%m/%Y')
             iheight = height + randrange(-2,2)
             iweight = weight + randrange(-5,5)
             ibp = random_bp()
@@ -119,7 +125,7 @@ def main():
                'patient_id': patient['id'], 
                'biometric_type_id': TYPE_HEIGHT,
                'value': str(iheight),
-               'timestamp': datetime.datetime.now().strftime('%d/%m/%Y')
+               'timestamp': date_str
             }
 
             # Generate weight entries
@@ -127,7 +133,7 @@ def main():
                'patient_id': patient['id'], 
                'biometric_type_id': TYPE_WEIGHT,
                'value': str(iweight),
-               'timestamp': datetime.datetime.now().strftime('%d/%m/%Y')
+               'timestamp': date_str
             }
 
             # Generate blood pressure entries
@@ -135,7 +141,7 @@ def main():
                'patient_id': patient['id'], 
                'biometric_type_id': TYPE_BP,
                'value': str(ibp),
-               'timestamp': datetime.datetime.now().strftime('%d/%m/%Y')
+               'timestamp': date_str
             }
 
             # Publish to database

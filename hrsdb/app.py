@@ -178,7 +178,7 @@ class BiometricAPI(Resource):
     parser.add_argument('patient_id', required=True)
     parser.add_argument('biometric_type_id', required=True)
     parser.add_argument('value', required=True)
-#    parser.add_argument('timestamp', required=True)
+    parser.add_argument('timestamp', required=True)
 
     def get(self, biometric_id):
         """GET a biometric record by ID from the database
@@ -209,9 +209,9 @@ class BiometricAPI(Resource):
         args = self.parser.parse_args()
 
         # Convert data_time and validate
-        #timestamp = utils.str2date(args.timestamp)
-        #if timestamp is None:
-        #    abort()
+        timestamp = utils.str2date(args.timestamp)
+        if timestamp is None:
+            abort(500)
 
         return_id = None
         with open_session() as session:
@@ -229,8 +229,7 @@ class BiometricAPI(Resource):
             biometric = patient.add_biometric(session,
                                   args.biometric_type_id,
                                   args.value,
-                                  #args.timestamp
-                                  datetime.datetime.now()
+                                  timestamp
                         )
 
             if biometric is None:
@@ -330,9 +329,9 @@ class ECGAPI(Resource):
         args = self.put_parser.parse_args()
 
         # Convert data_time and validate
-        #timestamp = utils.str2date(args.timestamp)
-        #if timestamp is None:
-        #    abort()
+        timestamp = utils.str2date(args.timestamp)
+        if timestamp is None:
+            abort(500)
 
         return_id = None
         with open_session() as session:
@@ -350,8 +349,7 @@ class ECGAPI(Resource):
             ecg = patient.add_ecg(session,
                                   args.sampling_freq,
                                   args.sample_count,
-                                  #args.timestamp
-                                  datetime.datetime.now(),
+                                  timestamp,
                                   args.data
                 )
 
