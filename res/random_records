@@ -4,6 +4,7 @@
 #
 # usage: random_records <database url>
 import argparse
+import csv
 import json
 import requests
 from random import randrange
@@ -15,13 +16,17 @@ from datetime import datetime, timedelta
 MALE_NAMES   = 'male_names.txt'
 FEMALE_NAMES = 'female_names.txt'
 
+# ECG Data
+ECG_FILE = "ecg.dat"
+
 # Date format
-DATE_START = datetime.strptime('1/1/1940', '%d/%m/%Y')
-DATE_END = datetime.strptime('1/1/2012', '%d/%m/%Y')
+DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
+DATE_START = datetime.strptime('1940/1/1 00:00:00', DATETIME_FORMAT)
+DATE_END = datetime.strptime('2012/1/1 00:00:00', DATETIME_FORMAT)
 
 # Gender constants
-GENDER_MALE   = 0
-GENDER_FEMALE = 1
+GENDER_MALE   = 1
+GENDER_FEMALE = 2
 
 # Random ranges
 HEIGHT_MIN = 155
@@ -66,6 +71,11 @@ def random_bp():
         randrange(BP_DIASTOLIC_MIN, BP_DIASTOLIC_MAX)
     )
 
+def loadECG():
+    with open(ECG_FILE) as ecg_file:
+        reader = csv.reader(ecg_file)
+        return list(reader)
+
 # Entry
 def main():
     """ Generate the file"""
@@ -80,7 +90,7 @@ def main():
     with open(MALE_NAMES) as names_file:
         for line in names_file:
             first_name, last_name = line.strip().split(' ', 1)
-            dob = random_date().strftime('%d/%m/%Y')
+            dob = random_date().strftime(DATETIME_FORMAT)
             plist.append({
                 'first_name'    : first_name,
                 'last_name'     : last_name,
@@ -91,7 +101,7 @@ def main():
     with open(FEMALE_NAMES) as names_file:
         for line in names_file:
             first_name, last_name = line.strip().split(' ', 1)
-            dob = random_date().strftime('%d/%m/%Y')
+            dob = random_date().strftime(DATETIME_FORMAT)
             plist.append({
                 'first_name'    : first_name,
                 'last_name'     : last_name,
@@ -104,7 +114,19 @@ def main():
     for patient in plist:
         rev = requests.put(args.db_url + '/patient/0', data=patient)
         patient['id'] = rev.json()['response']['id']
-        #    patient['id'] = 0
+
+        # Upload ECG file
+        with open(ECG_FILE) as ecgfile:
+            rev = requests.put(args.db_url + '/ecgdata', files={"data": ecgfile})
+            
+        # Upload ECG header file
+        ecgdata = {
+            "patient_id": patient['id'],
+            "sampling_freq": 1000,
+            "data_id" : rev.json()['response']['id'],
+            "timestamp": random_date().strftime(DATETIME_FORMAT)
+        }
+        requests.put(args.db_url + '/ecg', data=ecgdata)
 
         print("-> %04d %s %s" % (patient['id'], patient['first_name'], patient['last_name']))
         
@@ -115,7 +137,7 @@ def main():
         for j in range(0, 10):
             
             # Generate a date +30days from base date 
-            date_str = (base_date + timedelta(days=30*(j+1))).strftime('%d/%m/%Y')
+            date_str = (base_date + timedelta(days=30*(j+1))).strftime(DATETIME_FORMAT)
             iheight = height + randrange(-2,2)
             iweight = weight + randrange(-5,5)
             ibp = random_bp()

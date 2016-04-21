@@ -23,6 +23,7 @@ DEFAULT_HTTP_HOST = '127.0.0.1'
 DEFAULT_HTTP_PORT = 8080
 
 DEFAULT_CONFIG_PATH = '/etc/hrsdb.conf'
+DEFAULT_UPLOAD_FOLDER = '/tmp/hrsdb_uploads'
 
 
 def main():
@@ -64,11 +65,12 @@ def main():
         port = config.getint('flask', 'port', fallback=DEFAULT_HTTP_PORT)
 
     if args.debug:
-        debug = True
+        webapp.debug = True
     else:
-        debug = config.getboolean('flask', 'debug', fallback=False)
+        webapp.debug = config.getboolean('flask', 'debug', fallback=False)
 
-    webapp.run(host=host, port=port, debug=args.debug)
+    webapp.config['UPLOAD_FOLDER'] = config.get('flask', 'upload_folder', fallback=DEFAULT_UPLOAD_FOLDER)
+    webapp.run(host=host, port=port)
 
 
 # Start main

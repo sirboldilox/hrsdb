@@ -11,17 +11,20 @@ Returns:
 
   Encapsulating the response inside a Json object ensures that the top level object cannot be a list.
 """
+import csv
 import logging
-import datetime
+import os
+import werkzeug
 
-from flask import Flask, jsonify, abort
+from flask import Flask, jsonify, abort, current_app
 from flask_restful import Api, Resource, reqparse
 from sqlalchemy.orm.exc import NoResultFound
+from uuid import uuid4 as uuid
 
 # Local imports
 from hrsdb import utils
 from hrsdb.db import open_session, to_dict
-from hrsdb.db.models import Biometric, BiometricType, ECG, Patient
+from hrsdb.db.models import Biometric, BiometricType, ECG, ECGData, Patient
 
 # Logging
 logger = logging.getLogger(__name__)
@@ -38,7 +41,7 @@ def gen_response(data):
 
 
 class PatientAPI(Resource):
-    """API handler for accessing patient records: /patient/<id:int>"""
+    """API handler for accessing patient records: **/patient/<id:int>**"""
 
     # Parser for PUT requests
     parser = reqparse.RequestParser()
@@ -48,19 +51,31 @@ class PatientAPI(Resource):
     parser.add_argument('date_of_birth', required=True)
 
     def get(self, patient_id):
-        """GET a patient record by ID from the database
+        """Get a patient record by ID from the database
 
-        :param int patient_id: ID of the patient to search for.
-        :returns:              Patient record in a response object
+        Example **GET http://hrsdb/patient/1** ::
+
+            {
+              "response": {
+                "id": 1,
+                "first_name": "Bob",
+                "last_name": "Smith",
+                "gender": 0,
+                "date_of_birth": "1997/04/12"
+              }
+            }
+        
         """
-
         with open_session() as session:
             try:
                 record = session.query(Patient) \
                     .filter(Patient.id == patient_id).one()
             except NoResultFound:
-                logger.info("No record found")    # TODO: remove debugging
-                return gen_response("No record found")
+                logger.info("No record found")
+                resp = gen_response("No record found")
+                resp.status_code = 404
+                return resp
+
             except Exception as error:
                 print("Exeption: %s" % (str(error)))
                 return gen_response("Internal server error")
@@ -69,9 +84,23 @@ class PatientAPI(Resource):
 
     def put(self, patient_id):
         """PUT a new record into the database
-        
-        :param int patient_id:   Ignored, used for GET requests
-        :returns:                Database ID for the patient in a response object
+        Example JSON Body **PUT http://hrsdb/patient/0** ::
+
+            {
+                "first_name": "Bob",
+                "last_name": "Smith",
+                "gender": 0,
+                "date_of_birth": "1997/04/12"
+            }
+
+        Example response::
+
+            {
+              "response": {
+                "id": 1
+              }
+            }
+
         """
         args = self.parser.parse_args()
 
@@ -105,13 +134,32 @@ class PatientAPI(Resource):
 
 
 class PatientListAPI(Resource):
-    """API handler for returning lists of patient records: /patients"""
+    """API handler for returning lists of patient records: **/patients**"""
 
     def get(self):
-        """
-        Fetchs the list of patient records from the database
+        """Gets all patient records from the database
 
-        :return: JSON reponse object containing a list of all patient records
+        Example **GET http://hrsdb/patients**
+
+        .. code-block:: javascript
+
+            {
+              "response": [
+                {
+                  "id": 1,
+                  "first_name": "Bob",
+                  "last_name": "Smith",
+                  "gender": 0,
+                  "date_of_birth": "1997/04/12"
+
+                }
+                {
+                  "id": 2
+                  ...
+                }
+              ]
+            }
+
         """
         with open_session() as session:
             try:
@@ -133,19 +181,29 @@ class PatientListAPI(Resource):
 
 
 class BiometricTypeAPI(Resource):
-    """API handler for accessing biometric types (static)
-
-      Endpoint:  /biometric_types
-
-      Methods:
-        GET:  Returns all biometric types as JSON
-    """
+    """API handler for accessing biometric types: **/biometric_types**"""
 
     def get(self):
-        """GET a biometric record by ID from the database
+        """Get all biometric types from the database
 
-        :param int biometric_id: ID of the biometric to search for.
-        :return: JSON reponse object containing a biometric
+        Example **GET http://hrsdb/biometric_types** ::
+
+            {
+              "response": [
+                {
+                  "id": 1,
+                  "name": "height",
+                  "units" "cm"
+                }
+                {
+                  "id": 2,
+                  "name": "weight",
+                  "units": "kg"
+                }
+                ...
+              ]
+            }
+
         """
         records = None
         with open_session() as session:
@@ -165,14 +223,7 @@ class BiometricTypeAPI(Resource):
 
 
 class BiometricAPI(Resource):
-    """API handler for accessing biometric records
-
-      Endpoint:  /biometric/<id:int>
-
-      Methods:
-        GET:  Returns a JSON serialised biometric record
-        PUT:  Uploads a new biometric record.
-    """
+    """API handler for accessing biometric records: **/biometric/<id:int>**"""
     parser = reqparse.RequestParser()
     parser.add_argument('patient_id', required=True)
     parser.add_argument('biometric_type_id', required=True)
@@ -180,10 +231,20 @@ class BiometricAPI(Resource):
     parser.add_argument('timestamp', required=True)
 
     def get(self, biometric_id):
-        """GET a biometric record by ID from the database
+        """Get a biometric record by ID from the database
 
-        :param int biometric_id: ID of the biometric to search for.
-        :return: JSON reponse object containing a biometric
+        Example **GET http://hrsdb/biometric/1** ::
+
+            {
+              "response": {
+                  "id": 1,
+                  "patient_id": 1,
+                  "timestamp": "2015/05/19" 12:04:59,
+                  "type_id": 1,
+                  "value": "167"
+              }
+            }
+
         """
         record = None
         with open_session() as session:
@@ -192,7 +253,9 @@ class BiometricAPI(Resource):
                     .filter(Biometric.id == biometric_id).one()
             except NoResultFound:
                 logger.warn("No record found")
-                return gen_response("No record found")
+                resp = gen_response("No record found")
+                resp.status_code = 404
+                return resp
             except Exception as error:
                 logger.exception("Exeption: %s" % (str(error)))
                 return gen_response("Internal server error")
@@ -201,9 +264,24 @@ class BiometricAPI(Resource):
             return gen_response(to_dict(record))
 
     def put(self, biometric_id):
-        """PUT a new record into the database
-        :param int biometric_id:    Unused for PUT requests
-        :returns: JSON response object containing the new ID for the uploaded biometric.
+        """Put a new biometric record into the database
+        Example JSON Body **PUT http://hrsdb/biometric/0** ::
+
+            {
+              "patient_id": 1,
+              "timestamp": "2015/05/19" 12:04:59,
+              "type_id": 1,
+              "value": "167"
+            }
+
+        Example response::
+
+            {
+              "response": {
+                "id": 1
+              }
+            }
+
         """
         args = self.parser.parse_args()
 
@@ -244,9 +322,7 @@ class BiometricAPI(Resource):
 
 
 class BiometricListAPI(Resource):
-    """API handler for returning lists of biometric records for a specific patient: /biometrics
-
-    GET: Returns a JSON response containing a complete list of all patients
+    """API handler for returning lists of biometric records for a specific patient: **/biometrics**
     """
     parser = reqparse.RequestParser()
     parser.add_argument('patient_id', required=True)
@@ -255,7 +331,28 @@ class BiometricListAPI(Resource):
     def get(self):
         """
         Fetchs the list of biometric records from the database for this patient
-        :return: JSON encoded list of patient records
+        The list can optionally be filtered using a biometric_type id.
+
+        Example **GET http://hrsdb/biometrics?patient_id=1&biometric_type_id=1**
+        
+        .. code-block:: javascript
+
+            {
+              "response": [
+                {
+                  "id": 1,
+                  "patient_id": 1,
+                  "timestamp": "2015/05/19" 12:04:59,
+                  "type_id": 1,
+                  "value": "167"
+                }
+                {
+                  "id":2,
+                  ...
+                }
+              ]
+            }
+
         """
         args = self.parser.parse_args(strict=True)
 
@@ -272,7 +369,9 @@ class BiometricListAPI(Resource):
 
             except NoResultFound:
                 logger.info("No record found")
-                return gen_response("No result found")
+                resp = gen_response("No result found")
+                resp.status_code = 404
+                return resp
             except Exception as error:
                 logger.exception("Exeption: %s" % (str(error)))
                 return gen_response("Internal server error")
@@ -287,43 +386,81 @@ class BiometricListAPI(Resource):
 
 
 class ECGAPI(Resource):
-    """API handler for returning ECG data for a specific patient: /ecg"""
+    """API handler for returning ECG data for a specific patient: **/ecg**"""
     get_parser = reqparse.RequestParser()
     get_parser.add_argument('patient_id', required=True)
 
     put_parser = reqparse.RequestParser()
-    put_parser.add_argument('patient_id', required=True)
-    put_parser.add_argument('sampling_freq', required=True)
-    put_parser.add_argument('sample_count', required=True)
+    put_parser.add_argument('patient_id', type=int, required=True)
+    put_parser.add_argument('sampling_freq', type=float, required=True)
+    put_parser.add_argument('data_id', type=int, required=True)
     put_parser.add_argument('timestamp', required=True)
-    put_parser.add_argument('data', required=True)
 
     def get(self):
         """
-        Fetchs the list of biometric records from the database for this patient
-        :return: JSON encoded list of patient records
+        Fetchs a list of ecgc records from the database for a specific patient.
+        Example **GET http://hrsdb/ecg?patient_id=1**
+        
+        .. code-block:: javascript
+
+            {
+              "response": [
+                {
+                  "id": 1,
+                  "patient_id": 1,
+                  "sampling_freq": 1000.0
+                  "timestamp": "2015/05/19" 12:04:59,
+                  "data_id": 1,
+                }
+                {
+                  "id":2,
+                  ...
+                }
+              ]
+            }
+
         """
         args = self.get_parser.parse_args(strict=True)
 
         with open_session() as session:
             try:
-                records = session.query(ECG.id, ECG.patient_id,
-                    ECG.sample_count, ECG.sampling_freq, ECG.timestamp) \
+                records = session.query(ECG) \
                     .filter(ECG.patient_id == args.patient_id) \
                     .all()
             except NoResultFound:
                 logger.info("No record found")
-                return gen_response("No result found")
+                resp = gen_response("No result found")
+                resp.status_code = 404
+                return resp
             except Exception as error:
                 logger.exception("Exeption: %s" % (str(error)))
                 return gen_response("Internal server error")
 
             # Build the response list
+            print(records)
             rlist = [to_dict(record) for record in records]
             return gen_response(rlist)
 
     def put(self):
-        """PUT a new record into the database
+        """Put a new ECG record into the database
+        Example JSON Body **PUT http://hrsdb/ecg** ::
+
+            {
+              "id": 1,
+              "patient_id": 1,
+              "sampling_freq": 1000.0
+              "timestamp": "2015/05/19" 12:04:59,
+              "data_id": 1,
+            }
+
+        Example response::
+
+            {
+              "response": {
+                "id": 1
+              }
+            }
+
         """
         args = self.put_parser.parse_args()
 
@@ -337,6 +474,9 @@ class ECGAPI(Resource):
             try:
                 patient = session.query(Patient) \
                             .filter(Patient.id == args.patient_id).one()
+
+                ecgdata = session.query(ECGData) \
+                            .filter(ECGData.id == args.data_id).one()
             except NoResultFound:
                 logger.warn("PUT: No Patient matching id for biometric")
                 return gen_response("No matching Patient")
@@ -345,16 +485,12 @@ class ECGAPI(Resource):
                 return gen_response("Internal server error")
 
             # Add ecg record
-            ecg = patient.add_ecg(session,
-                                  args.sampling_freq,
-                                  args.sample_count,
-                                  timestamp,
-                                  args.data
-                )
-
-            if ecg is None:
-                logger.warn("PUT: No Patient matching id for biometric")
-                return gen_response("No matching Biometric type")
+            ecg = patient.add_ecg(
+                session,
+                args.sampling_freq,
+                ecgdata,
+                timestamp
+            )
 
             session.commit()
             return gen_response({"id": ecg.id})
@@ -365,55 +501,87 @@ class ECGAPI(Resource):
 
 
 class ECGDataAPI(Resource):
-    """API handler for returning ECG data for a ECG entry: /ecgdata
-    
-    Response format:
-    {
-        "response": {
-            "header": {
-                "id": <int>
-                "patient_id": <int>
-                "sampling_freq": <float>
-                "sample_count": <int>
-                "timestamp": <datatime>
-            }
-            "data": [
-                X,X,X,X,X,X,X,X,X
-            ]
-        }
-    }
-    """
-    parser = reqparse.RequestParser()
-    parser.add_argument('id', required=True)
+    """API handler for returning ECG data for a ECG entry: **/ecgdata**"""
+    file_prefix = 'ecg_'
+
+    get_parser = reqparse.RequestParser()
+    get_parser.add_argument('id', required=True)
+
+    put_parser = reqparse.RequestParser()
+    put_parser.add_argument(
+        'data',
+        type=werkzeug.datastructures.FileStorage,
+        location='files',
+        required=True
+    )
 
     def get(self):
         """
         Fetchs the ECG data for a specific entry from disk
-        :return: JSON encoded ECG records
+        Example **GET http://hrsdb/ecgdata?id=1**
+        
+        .. code-block:: javascript
+
+            {
+              "response": [
+                 0,0,0,0,10,40...
+              ]
+            }
         """
-        args = self.parser.parse_args(strict=True)
+        args = self.get_parser.parse_args(strict=True)
 
         with open_session() as session:
             try:
-                db_record = query = session.query(ECG) \
-                    .filter(ECG.id == args.id).one()
+                db_record = query = session.query(ECGData) \
+                    .filter(ECGData.id == args.id).one()
             except NoResultFound:
                 logger.info("No record found")    # TODO: remove debugging
-                return gen_response("No result found")
+                resp = gen_response("No result found")
+                resp.status_code = 404
+                return resp
             except Exception as error:
                 logger.exception("Exeption: %s" % (str(error)))
                 return gen_response("Internal server error")
 
-            record = {
-                "header": to_dict(db_record),
-                "data" : []
+            data_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], db_record.path)
+            with open(data_file_path) as data_file:
+                csv_reader = csv.reader(data_file)
+                data = list(csv_reader)[0]
+
+            return gen_response(data)
+
+    def put(self):
+        """ Upload an ECG datafile to the server.
+        The file should be labled as "data" when uploaded
+
+        Example URL **PUT http://hrsdb/ecgdata**
+
+        Example response::
+
+            {
+              "response": {
+                "id": 1
+              }
             }
+        """
 
-            with open(record['path']) as ecg_file:
-                record['data']
-                
+        args = self.put_parser.parse_args(strict=True)
+        ecgfile = args.data
 
-            return gen_response()
+        # Save the file on disk using a uuid
+        filename = "%s%s.dat" % (self.file_prefix, uuid())
+        ecgfile.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
+
+        # Create a new database record for this file
+        with open_session() as session:
+            ecgdata = ECGData(filename)
+            session.add(ecgdata)
+            session.flush()
+            session.commit()
+
+            print(ecgdata.id)
+
+            return gen_response({"id": ecgdata.id})
 
     @staticmethod
     def add(api):

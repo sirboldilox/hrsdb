@@ -4,7 +4,7 @@ Common utilities for the hrsdb package
 import datetime
 
 # Datetime format used for conversion
-DATETIME_FORMAT = "%d/%m/%Y"
+DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 
 def str2date(date_string):
     """Convert a datetime string from the common format:
@@ -14,7 +14,8 @@ def str2date(date_string):
     """
     try:
         return datetime.datetime.strptime(date_string, DATETIME_FORMAT)
-    except:
+    except Exception as error:
+        print(error)
         return None
 
 def date2str(date):
