@@ -11,11 +11,24 @@ Basic data about individual patients:
 +-------+----------------+-----------------------+
 | Type  | Name           | Description           |
 +-------+----------------+-----------------------+
-| uuid  | ID             | Unique identifier     |
+| int   | id             | Unique identifier     |
 | str   | First name     | Patient first name    |
 | str   | Second name    | Patient last name     |
 | int   | Gender         | Gender M(0) F(1)      |
 | d/t   | Date of birth  | DD/MM/YYYY            |
++-------+----------------+-----------------------+
+
+Biometric Types
+~~~~~~~~~~~~~~~
+
+Static biometric types for sorting biometric records
+
++-------+----------------+-----------------------+
+| Type  | Name           | Description           |
++-------+----------------+-----------------------+
+| int   | id             | Unique identifier     |
+| name  |
+| units | blood pressure |                       |
 +-------+----------------+-----------------------+
 
 Biometric readings
